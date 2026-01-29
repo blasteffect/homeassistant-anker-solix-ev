@@ -29,7 +29,12 @@ class PhaseSelect(SelectEntity):
 
     @property
     def current_option(self):
-        return None  # MVP: not reading back 21003 yet.
+        val = self.coordinator.data.get("phase_setting")
+        if val is None:
+            return None
+        # options are keys of PHASE_REVERSE_MAP, so map numeric->string
+        from .const import PHASE_MAP
+        return PHASE_MAP.get(int(val))
 
     async def async_select_option(self, option: str) -> None:
         await self.coordinator.client.write_u16(REG_PHASE_SETTING, PHASE_REVERSE_MAP[option])

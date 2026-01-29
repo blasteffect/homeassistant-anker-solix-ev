@@ -1,7 +1,7 @@
 {
   "domain": "anker_solix_ev",
   "name": "Anker SOLIX EV Charger (Modbus TCP)",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "documentation": "https://github.com/blasteffect/homeassistant-anker-solix-ev",
   "issue_tracker": "https://github.com/blasteffect/homeassistant-anker-solix-ev/issues",
   "requirements": [

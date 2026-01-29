@@ -45,11 +45,17 @@ class AnkerSolixCoordinator(DataUpdateCoordinator[dict]):
             duration_s = await self.client.read_u32(REG_SESSION_DURATION)
             energy_wh = await self.client.read_u32(REG_SESSION_ENERGY_WH)
 
+            phase = await self.client.read_u16(REG_PHASE_SETTING)
+            max_current = await self.client.read_u16(REG_MAX_CURRENT)
+
             return {
                 "charging_status": status,
                 "power_w": power_w,
                 "duration_s": duration_s,
                 "energy_wh": energy_wh,
+                "phase_setting": phase,
+                "max_current": max_current,
             }
         except Exception as err:
             raise UpdateFailed(str(err)) from err
+
