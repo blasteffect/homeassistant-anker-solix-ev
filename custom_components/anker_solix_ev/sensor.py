@@ -19,7 +19,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     coord: AnkerSolixCoordinator = hass.data[DOMAIN][entry.entry_id]
     async_add_entities([
         ChargingStatusSensor(coord, entry),
-        U32Sensor(coord, entry, "Total Active Power", "power_w", "W"),
+        TotalActivePowerSensor(coord, entry),
         U32Sensor(coord, entry, "Session Energy", "energy_wh", "Wh"),
         U32Sensor(coord, entry, "Session Duration", "duration_s", "s"),
 
@@ -155,3 +155,18 @@ class EnumSensor(_Base):
             return None
         raw = int(raw)
         return self._map.get(raw, f"unknown_{raw}")
+
+class TotalActivePowerSensor(_Base):
+    _attr_name = "Total Active Power"
+    _attr_native_unit_of_measurement = "W"
+    _attr_device_class = "power"
+    _attr_state_class = "measurement"
+
+    @property
+    def unique_id(self):
+        return f"{self.entry.entry_id}_power_w"
+
+    @property
+    def native_value(self):
+        val = self.coordinator.data.get("power_w")
+        return int(val) if val is not None else None

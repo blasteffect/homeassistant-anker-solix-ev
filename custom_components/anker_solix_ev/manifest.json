@@ -1,7 +1,7 @@
 {
   "domain": "anker_solix_ev",
   "name": "Anker SOLIX EV Charger (Modbus TCP)",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "documentation": "https://github.com/<YOUR_USER>/<YOUR_REPO>",
   "issue_tracker": "https://github.com/<YOUR_USER>/<YOUR_REPO>/issues",
   "requirements": [],
