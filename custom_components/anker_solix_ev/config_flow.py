@@ -40,16 +40,10 @@ class AnkerSolixEVConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             {
                 vol.Required(CONF_HOST): str,
                 vol.Optional(CONF_PORT, default=DEFAULT_PORT): vol.Coerce(int),
-                vol.Optional(
-                    CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL
-                ): vol.Coerce(int),
-                # IMPORTANT: allow any integer offset (e.g. -1 or -20001)
-                vol.Optional(
-                    CONF_ADDRESS_OFFSET, default=DEFAULT_ADDRESS_OFFSET
-                ): vol.Coerce(int),
-                vol.Optional(CONF_WORD_ORDER, default=DEFAULT_WORD_ORDER): vol.In(
-                    ["hi_lo", "lo_hi"]
-                ),
+                vol.Optional(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): vol.Coerce(int),
+                # Allow any integer offset (0, -1, -20001, etc.)
+                vol.Optional(CONF_ADDRESS_OFFSET, default=DEFAULT_ADDRESS_OFFSET): vol.Coerce(int),
+                vol.Optional(CONF_WORD_ORDER, default=DEFAULT_WORD_ORDER): vol.In(["hi_lo", "lo_hi"]),
             }
         )
 
@@ -63,11 +57,12 @@ class AnkerSolixEVConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 class AnkerSolixEVOptionsFlow(config_entries.OptionsFlow):
     def __init__(self, config_entry):
-        self.config_entry = config_entry
+        # IMPORTANT: OptionsFlow already manages config_entry internally in recent HA versions
+        super().__init__(config_entry)
 
     async def async_step_init(self, user_input=None):
         if user_input is not None:
-            # Store options in data (simpler for MVP)
+            # Store options directly into the entry data for simplicity
             data = {**self.config_entry.data, **user_input}
             self.hass.config_entries.async_update_entry(self.config_entry, data=data)
             return self.async_create_entry(title="", data={})
@@ -76,22 +71,10 @@ class AnkerSolixEVOptionsFlow(config_entries.OptionsFlow):
         schema = vol.Schema(
             {
                 vol.Required(CONF_HOST, default=data.get(CONF_HOST)): str,
-                vol.Required(
-                    CONF_PORT, default=data.get(CONF_PORT, DEFAULT_PORT)
-                ): vol.Coerce(int),
-                vol.Required(
-                    CONF_SCAN_INTERVAL,
-                    default=data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
-                ): vol.Coerce(int),
-                # IMPORTANT: allow any integer offset (e.g. -1 or -20001)
-                vol.Required(
-                    CONF_ADDRESS_OFFSET,
-                    default=data.get(CONF_ADDRESS_OFFSET, DEFAULT_ADDRESS_OFFSET),
-                ): vol.Coerce(int),
-                vol.Required(
-                    CONF_WORD_ORDER,
-                    default=data.get(CONF_WORD_ORDER, DEFAULT_WORD_ORDER),
-                ): vol.In(["hi_lo", "lo_hi"]),
+                vol.Required(CONF_PORT, default=data.get(CONF_PORT, DEFAULT_PORT)): vol.Coerce(int),
+                vol.Required(CONF_SCAN_INTERVAL, default=data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)): vol.Coerce(int),
+                vol.Required(CONF_ADDRESS_OFFSET, default=data.get(CONF_ADDRESS_OFFSET, DEFAULT_ADDRESS_OFFSET)): vol.Coerce(int),
+                vol.Required(CONF_WORD_ORDER, default=data.get(CONF_WORD_ORDER, DEFAULT_WORD_ORDER)): vol.In(["hi_lo", "lo_hi"]),
             }
         )
         return self.async_show_form(step_id="init", data_schema=schema)

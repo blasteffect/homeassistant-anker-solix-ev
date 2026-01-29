@@ -4,10 +4,16 @@ import asyncio
 from dataclasses import dataclass
 from typing import List, Tuple
 
-# Modbus TCP constants
 MBAP_HEADER_LEN = 7  # TID(2) + PID(2) + LEN(2) + UID(1)
 PID_MODBUS = 0
 UID_DEFAULT = 1
+
+
+class ModbusException(Exception):
+    def __init__(self, fc: int, code: int | None):
+        self.fc = fc
+        self.code = code
+        super().__init__(f"Modbus exception (fc=0x{fc:02X}, code={code})")
 
 
 @dataclass
@@ -20,10 +26,9 @@ class ModbusSettings:
 
 class AnkerModbusClient:
     """
-    Minimal Modbus TCP client (asyncio) without pymodbus.
-    Supports:
-      - FC03 Read Holding Registers
-      - FC06 Write Single Register
+    Minimal Modbus TCP client (asyncio), no pymodbus.
+    Reads: FC03 (holding) with auto-fallback to FC04 (input) on Illegal Data Address (code=2).
+    Writes: FC06 (write single register).
     """
 
     def __init__(self, settings: ModbusSettings):
@@ -32,7 +37,6 @@ class AnkerModbusClient:
         self._tid = 0
 
     def _addr(self, register: int) -> int:
-        # Apply offset if device/tooling is 0-based vs 1-based mismatch
         return register + self._s.address_offset
 
     def _next_tid(self) -> int:
@@ -41,8 +45,6 @@ class AnkerModbusClient:
 
     @staticmethod
     def _u32_from_words(words: list[int], word_order: str) -> int:
-        if len(words) != 2:
-            raise ValueError("Need exactly 2 words for uint32")
         w0, w1 = words[0] & 0xFFFF, words[1] & 0xFFFF
         if word_order == "hi_lo":
             hi, lo = w0, w1
@@ -64,7 +66,6 @@ class AnkerModbusClient:
 
     @staticmethod
     def _build_mbap(tid: int, length: int, uid: int = UID_DEFAULT) -> bytes:
-        # length = bytes following LEN field (UID + PDU)
         return (
             tid.to_bytes(2, "big")
             + PID_MODBUS.to_bytes(2, "big")
@@ -73,9 +74,6 @@ class AnkerModbusClient:
         )
 
     async def _exchange(self, pdu: bytes) -> bytes:
-        """
-        Send one Modbus TCP request and return the raw PDU response (without MBAP).
-        """
         reader, writer = await self._open()
         try:
             tid = self._next_tid()
@@ -84,25 +82,21 @@ class AnkerModbusClient:
             writer.write(mbap + pdu)
             await writer.drain()
 
-            # Read MBAP header
             hdr = await asyncio.wait_for(reader.readexactly(MBAP_HEADER_LEN), timeout=5)
             r_tid = int.from_bytes(hdr[0:2], "big")
             r_pid = int.from_bytes(hdr[2:4], "big")
             r_len = int.from_bytes(hdr[4:6], "big")
-            # uid = hdr[6] (ignored)
 
             if r_pid != PID_MODBUS:
                 raise RuntimeError(f"Invalid Modbus PID: {r_pid}")
             if r_tid != tid:
                 raise RuntimeError(f"Transaction ID mismatch: sent {tid}, got {r_tid}")
 
-            # r_len includes UID(1) + PDU(n). UID already consumed in header read.
             pdu_len = r_len - 1
             if pdu_len <= 0:
                 raise RuntimeError(f"Invalid response length: {r_len}")
 
-            resp_pdu = await asyncio.wait_for(reader.readexactly(pdu_len), timeout=5)
-            return resp_pdu
+            return await asyncio.wait_for(reader.readexactly(pdu_len), timeout=5)
         finally:
             try:
                 writer.close()
@@ -111,23 +105,21 @@ class AnkerModbusClient:
                 pass
 
     @staticmethod
-    def _check_exception(resp_pdu: bytes) -> None:
-        # If FC has MSB set, it's an exception response.
+    def _raise_if_exception(resp_pdu: bytes) -> None:
         if not resp_pdu:
             raise RuntimeError("Empty response PDU")
         fc = resp_pdu[0]
         if fc & 0x80:
-            exc = resp_pdu[1] if len(resp_pdu) > 1 else None
-            raise RuntimeError(f"Modbus exception (fc=0x{fc:02X}, code={exc})")
+            code = resp_pdu[1] if len(resp_pdu) > 1 else None
+            raise ModbusException(fc=fc, code=code)
 
     @staticmethod
-    def _parse_fc03(resp_pdu: bytes) -> List[int]:
-        # Response: fc(1) + byte_count(1) + data(2*N)
-        AnkerModbusClient._check_exception(resp_pdu)
+    def _parse_read_response(expected_fc: int, resp_pdu: bytes) -> List[int]:
+        AnkerModbusClient._raise_if_exception(resp_pdu)
         if len(resp_pdu) < 2:
-            raise RuntimeError("Short FC03 response")
+            raise RuntimeError("Short read response")
         fc = resp_pdu[0]
-        if fc != 0x03:
+        if fc != expected_fc:
             raise RuntimeError(f"Unexpected function code in response: {fc}")
         byte_count = resp_pdu[1]
         data = resp_pdu[2:]
@@ -136,37 +128,51 @@ class AnkerModbusClient:
         if byte_count % 2 != 0:
             raise RuntimeError(f"Invalid byte_count (not even): {byte_count}")
 
-        regs = []
+        regs: List[int] = []
         for i in range(0, byte_count, 2):
             regs.append(int.from_bytes(data[i : i + 2], "big"))
         return regs
 
+    async def _read_regs(self, fc: int, start_addr: int, quantity: int) -> List[int]:
+        # FC03 or FC04: fc + start(2) + qty(2)
+        pdu = bytes([fc]) + start_addr.to_bytes(2, "big") + quantity.to_bytes(2, "big")
+        resp = await self._exchange(pdu)
+        return self._parse_read_response(fc, resp)
+
     async def read_u16(self, register: int) -> int:
         async with self._lock:
             addr = self._addr(register)
-            # FC03: 0x03 + start_addr(2) + quantity(2)
-            pdu = b"\x03" + addr.to_bytes(2, "big") + (1).to_bytes(2, "big")
-            resp = await self._exchange(pdu)
-            regs = self._parse_fc03(resp)
+            try:
+                regs = await self._read_regs(0x03, addr, 1)  # holding
+            except ModbusException as e:
+                # 0x83/code=2 => illegal address: try input registers (FC04)
+                if e.code == 2:
+                    regs = await self._read_regs(0x04, addr, 1)
+                else:
+                    raise
             return int(regs[0])
 
     async def read_u32(self, register: int) -> int:
         async with self._lock:
             addr = self._addr(register)
-            pdu = b"\x03" + addr.to_bytes(2, "big") + (2).to_bytes(2, "big")
-            resp = await self._exchange(pdu)
-            regs = self._parse_fc03(resp)
+            try:
+                regs = await self._read_regs(0x03, addr, 2)
+            except ModbusException as e:
+                if e.code == 2:
+                    regs = await self._read_regs(0x04, addr, 2)
+                else:
+                    raise
             return self._u32_from_words(regs[:2], self._s.word_order)
 
     async def write_u16(self, register: int, value: int) -> None:
         async with self._lock:
             addr = self._addr(register)
             val = int(value) & 0xFFFF
-            # FC06: 0x06 + reg_addr(2) + value(2)
+            # FC06: 0x06 + reg(2) + value(2)
             pdu = b"\x06" + addr.to_bytes(2, "big") + val.to_bytes(2, "big")
             resp = await self._exchange(pdu)
 
-            self._check_exception(resp)
+            self._raise_if_exception(resp)
             if len(resp) != 5:
                 raise RuntimeError(f"Unexpected FC06 response length: {len(resp)}")
             if resp[0] != 0x06:
