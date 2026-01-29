@@ -32,3 +32,8 @@ This integration is an MVP baseline intended for extension (more sensors, scalin
 
 ## v0.1.1
 - Relaxed pymodbus requirement to avoid dependency conflicts (uses >=3.11.2).
+
+
+## v0.2.0
+- Added per-phase voltage/current/power sensors, flags as binary_sensors, and readback for phase/max current.
+- Removed pymodbus dependency (socket Modbus TCP).

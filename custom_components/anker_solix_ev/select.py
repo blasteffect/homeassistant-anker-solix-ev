@@ -5,7 +5,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN, REG_PHASE_SETTING, PHASE_REVERSE_MAP
+from .const import DOMAIN, REG_PHASE_SETTING, PHASE_MAP, PHASE_REVERSE_MAP
 from .coordinator import AnkerSolixCoordinator
 
 
@@ -32,8 +32,6 @@ class PhaseSelect(SelectEntity):
         val = self.coordinator.data.get("phase_setting")
         if val is None:
             return None
-        # options are keys of PHASE_REVERSE_MAP, so map numeric->string
-        from .const import PHASE_MAP
         return PHASE_MAP.get(int(val))
 
     async def async_select_option(self, option: str) -> None:

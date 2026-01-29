@@ -25,10 +25,13 @@ class ModbusSettings:
 
 
 class AnkerModbusClient:
-    """
-    Minimal Modbus TCP client (asyncio), no pymodbus.
-    Reads: FC03 (holding) with auto-fallback to FC04 (input) on Illegal Data Address (code=2).
-    Writes: FC06 (write single register).
+    """Minimal Modbus TCP client (asyncio), no pymodbus.
+
+    Reads:
+      - FC03 (holding registers), auto-fallback to FC04 (input registers) on
+        Illegal Data Address (exception code 2).
+    Writes:
+      - FC06 (write single register).
     """
 
     def __init__(self, settings: ModbusSettings):
@@ -54,14 +57,10 @@ class AnkerModbusClient:
 
     async def _open(self) -> Tuple[asyncio.StreamReader, asyncio.StreamWriter]:
         try:
-            return await asyncio.wait_for(
-                asyncio.open_connection(self._s.host, self._s.port),
-                timeout=5,
-            )
+            return await asyncio.wait_for(asyncio.open_connection(self._s.host, self._s.port), timeout=5)
         except Exception as e:
             raise ConnectionError(
-                f"TCP connect failed to {self._s.host}:{self._s.port} "
-                f"({type(e).__name__}: {e})"
+                f"TCP connect failed to {self._s.host}:{self._s.port} ({type(e).__name__}: {e})"
             ) from e
 
     @staticmethod
@@ -78,7 +77,6 @@ class AnkerModbusClient:
         try:
             tid = self._next_tid()
             mbap = self._build_mbap(tid, 1 + len(pdu), UID_DEFAULT)
-
             writer.write(mbap + pdu)
             await writer.drain()
 
@@ -134,49 +132,40 @@ class AnkerModbusClient:
         return regs
 
     async def _read_regs(self, fc: int, start_addr: int, quantity: int) -> List[int]:
-        # FC03 or FC04: fc + start(2) + qty(2)
         pdu = bytes([fc]) + start_addr.to_bytes(2, "big") + quantity.to_bytes(2, "big")
         resp = await self._exchange(pdu)
         return self._parse_read_response(fc, resp)
 
+    async def _read_holding_with_fallback(self, addr: int, qty: int) -> List[int]:
+        try:
+            return await self._read_regs(0x03, addr, qty)
+        except ModbusException as e:
+            if e.code == 2:
+                return await self._read_regs(0x04, addr, qty)
+            raise
+
     async def read_u16(self, register: int) -> int:
         async with self._lock:
             addr = self._addr(register)
-            try:
-                regs = await self._read_regs(0x03, addr, 1)  # holding
-            except ModbusException as e:
-                # 0x83/code=2 => illegal address: try input registers (FC04)
-                if e.code == 2:
-                    regs = await self._read_regs(0x04, addr, 1)
-                else:
-                    raise
+            regs = await self._read_holding_with_fallback(addr, 1)
             return int(regs[0])
 
     async def read_u32(self, register: int) -> int:
         async with self._lock:
             addr = self._addr(register)
-            try:
-                regs = await self._read_regs(0x03, addr, 2)
-            except ModbusException as e:
-                if e.code == 2:
-                    regs = await self._read_regs(0x04, addr, 2)
-                else:
-                    raise
+            regs = await self._read_holding_with_fallback(addr, 2)
             return self._u32_from_words(regs[:2], self._s.word_order)
 
     async def write_u16(self, register: int, value: int) -> None:
         async with self._lock:
             addr = self._addr(register)
             val = int(value) & 0xFFFF
-            # FC06: 0x06 + reg(2) + value(2)
             pdu = b"\x06" + addr.to_bytes(2, "big") + val.to_bytes(2, "big")
             resp = await self._exchange(pdu)
 
             self._raise_if_exception(resp)
-            if len(resp) != 5:
-                raise RuntimeError(f"Unexpected FC06 response length: {len(resp)}")
-            if resp[0] != 0x06:
-                raise RuntimeError(f"Unexpected function code for FC06: {resp[0]}")
+            if len(resp) != 5 or resp[0] != 0x06:
+                raise RuntimeError(f"Unexpected FC06 response: {resp!r}")
             r_addr = int.from_bytes(resp[1:3], "big")
             r_val = int.from_bytes(resp[3:5], "big")
             if r_addr != addr or r_val != val:

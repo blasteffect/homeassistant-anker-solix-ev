@@ -26,11 +26,8 @@ class AnkerSolixEVConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            await self.async_set_unique_id(
-                f"{user_input[CONF_HOST]}:{user_input[CONF_PORT]}"
-            )
+            await self.async_set_unique_id(f"{user_input[CONF_HOST]}:{user_input[CONF_PORT]}")
             self._abort_if_unique_id_configured()
-
             return self.async_create_entry(
                 title=f"Anker SOLIX EV ({user_input[CONF_HOST]})",
                 data=user_input,
@@ -41,12 +38,10 @@ class AnkerSolixEVConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required(CONF_HOST): str,
                 vol.Optional(CONF_PORT, default=DEFAULT_PORT): vol.Coerce(int),
                 vol.Optional(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): vol.Coerce(int),
-                # Allow any integer offset (0, -1, -20001, etc.)
                 vol.Optional(CONF_ADDRESS_OFFSET, default=DEFAULT_ADDRESS_OFFSET): vol.Coerce(int),
                 vol.Optional(CONF_WORD_ORDER, default=DEFAULT_WORD_ORDER): vol.In(["hi_lo", "lo_hi"]),
             }
         )
-
         return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
 
     @staticmethod
@@ -57,12 +52,10 @@ class AnkerSolixEVConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 class AnkerSolixEVOptionsFlow(config_entries.OptionsFlow):
     def __init__(self, config_entry):
-        # IMPORTANT: OptionsFlow already manages config_entry internally in recent HA versions
         super().__init__(config_entry)
 
     async def async_step_init(self, user_input=None):
         if user_input is not None:
-            # Store options directly into the entry data for simplicity
             data = {**self.config_entry.data, **user_input}
             self.hass.config_entries.async_update_entry(self.config_entry, data=data)
             return self.async_create_entry(title="", data={})
