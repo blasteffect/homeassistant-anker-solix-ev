@@ -31,17 +31,27 @@ _LOGGER = logging.getLogger(__name__)
 class AnkerSolixCoordinator(DataUpdateCoordinator[dict]):
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry):
         self.entry = entry
+
+        # data = identité (host/port), options = paramètres modifiables
         data = entry.data
+        opts = entry.options
 
-        settings = ModbusSettings(
-            host=data[CONF_HOST],
-            port=int(data.get(CONF_PORT, DEFAULT_PORT)),
-            address_offset=int(data.get(CONF_ADDRESS_OFFSET, DEFAULT_ADDRESS_OFFSET)),
-            word_order=str(data.get(CONF_WORD_ORDER, DEFAULT_WORD_ORDER)),
+        host = data[CONF_HOST]
+        port = int(data.get(CONF_PORT, DEFAULT_PORT))
+
+        scan = int(opts.get(CONF_SCAN_INTERVAL, data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)))
+        offset = int(opts.get(CONF_ADDRESS_OFFSET, data.get(CONF_ADDRESS_OFFSET, DEFAULT_ADDRESS_OFFSET)))
+        word_order = str(opts.get(CONF_WORD_ORDER, data.get(CONF_WORD_ORDER, DEFAULT_WORD_ORDER)))
+
+        self.client = AnkerModbusClient(
+            ModbusSettings(
+                host=host,
+                port=port,
+                address_offset=offset,
+                word_order=word_order,
+            )
         )
-        self.client = AnkerModbusClient(settings)
 
-        scan = int(data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL))
         super().__init__(
             hass,
             logger=_LOGGER,
