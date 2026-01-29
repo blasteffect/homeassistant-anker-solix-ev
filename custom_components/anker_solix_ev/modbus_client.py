@@ -5,12 +5,14 @@ from dataclasses import dataclass
 
 from pymodbus.client import AsyncModbusTcpClient
 
+
 @dataclass
 class ModbusSettings:
     host: str
     port: int
     address_offset: int = 0
     word_order: str = "hi_lo"  # or "lo_hi"
+
 
 class AnkerModbusClient:
     def __init__(self, settings: ModbusSettings):
@@ -67,4 +69,3 @@ class AnkerModbusClient:
             rq = await client.write_register(self._addr(register), value & 0xFFFF)
             if rq.isError():
                 raise RuntimeError(f"Modbus write_u16 error: {rq}")
-

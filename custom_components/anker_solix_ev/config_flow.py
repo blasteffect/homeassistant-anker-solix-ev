@@ -11,6 +11,7 @@ from .const import (
     DEFAULT_PORT, DEFAULT_SCAN_INTERVAL, DEFAULT_ADDRESS_OFFSET, DEFAULT_WORD_ORDER,
 )
 
+
 class AnkerSolixEVConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
@@ -18,7 +19,7 @@ class AnkerSolixEVConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            # Unicité par host:port
+            # Uniqueness by host:port
             await self.async_set_unique_id(f"{user_input[CONF_HOST]}:{user_input[CONF_PORT]}")
             self._abort_if_unique_id_configured()
 
@@ -42,6 +43,7 @@ class AnkerSolixEVConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def async_get_options_flow(config_entry):
         return AnkerSolixEVOptionsFlow(config_entry)
 
+
 class AnkerSolixEVOptionsFlow(config_entries.OptionsFlow):
     def __init__(self, config_entry):
         self.config_entry = config_entry
@@ -59,4 +61,3 @@ class AnkerSolixEVOptionsFlow(config_entries.OptionsFlow):
             vol.Required(CONF_WORD_ORDER, default=data.get(CONF_WORD_ORDER, DEFAULT_WORD_ORDER)): vol.In(["hi_lo", "lo_hi"]),
         })
         return self.async_show_form(step_id="init", data_schema=schema)
-

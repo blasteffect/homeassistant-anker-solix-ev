@@ -8,9 +8,11 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import DOMAIN, REG_MAX_CURRENT
 from .coordinator import AnkerSolixCoordinator
 
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback):
     coord: AnkerSolixCoordinator = hass.data[DOMAIN][entry.entry_id]
     async_add_entities([MaxCurrentNumber(coord, entry)])
+
 
 class MaxCurrentNumber(NumberEntity):
     _attr_has_entity_name = True
@@ -30,10 +32,9 @@ class MaxCurrentNumber(NumberEntity):
 
     @property
     def native_value(self):
-        # MVP: on ne relit pas en continu 21004 (on pourrait l’ajouter au coordinator si tu veux)
+        # MVP: not reading back 21004 yet.
         return None
 
     async def async_set_native_value(self, value: float) -> None:
         await self.coordinator.client.write_u16(REG_MAX_CURRENT, int(value))
         await self.coordinator.async_request_refresh()
-

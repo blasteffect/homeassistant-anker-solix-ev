@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import timedelta
 
 from homeassistant.config_entries import ConfigEntry
@@ -12,6 +13,9 @@ from .const import (
     REG_CHARGING_STATUS, REG_TOTAL_ACTIVE_POWER, REG_SESSION_DURATION, REG_SESSION_ENERGY_WH,
 )
 from .modbus_client import AnkerModbusClient, ModbusSettings
+
+_LOGGER = logging.getLogger(__name__)
+
 
 class AnkerSolixCoordinator(DataUpdateCoordinator[dict]):
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry):
@@ -29,7 +33,7 @@ class AnkerSolixCoordinator(DataUpdateCoordinator[dict]):
         scan = int(data.get(CONF_SCAN_INTERVAL, 5))
         super().__init__(
             hass,
-            logger=None,
+            logger=_LOGGER,
             name=f"{DOMAIN}_{entry.entry_id}",
             update_interval=timedelta(seconds=scan),
         )
@@ -49,4 +53,3 @@ class AnkerSolixCoordinator(DataUpdateCoordinator[dict]):
             }
         except Exception as err:
             raise UpdateFailed(str(err)) from err
-

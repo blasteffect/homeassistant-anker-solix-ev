@@ -36,4 +36,3 @@ CHARGING_STATUS_MAP = {
 
 PHASE_MAP = {0: "auto", 1: "single_phase", 2: "three_phase"}
 PHASE_REVERSE_MAP = {v: k for k, v in PHASE_MAP.items()}
-
