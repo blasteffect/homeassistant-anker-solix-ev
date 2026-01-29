@@ -24,16 +24,18 @@ class AnkerSolixEVConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_user(self, user_input=None):
         if user_input is not None:
-            await self.async_set_unique_id(f"{user_input[CONF_HOST]}:{user_input[CONF_PORT]}")
+            await self.async_set_unique_id(
+                f"{user_input[CONF_HOST]}:{user_input.get(CONF_PORT, DEFAULT_PORT)}"
+            )
             self._abort_if_unique_id_configured()
 
-            # On met l'IP/port dans data (identité de l'équipement)
+            # Identité équipement (host/port) dans data
             data = {
                 CONF_HOST: user_input[CONF_HOST],
                 CONF_PORT: user_input.get(CONF_PORT, DEFAULT_PORT),
             }
 
-            # Le reste en options (modifiable via la roue)
+            # Paramètres modifiables dans options
             options = {
                 CONF_SCAN_INTERVAL: user_input.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
                 CONF_ADDRESS_OFFSET: user_input.get(CONF_ADDRESS_OFFSET, DEFAULT_ADDRESS_OFFSET),
@@ -65,15 +67,16 @@ class AnkerSolixEVConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 class AnkerSolixEVOptionsFlow(config_entries.OptionsFlow):
     def __init__(self, config_entry: config_entries.ConfigEntry):
-        super().__init__(config_entry)
+        # IMPORTANT: sur certaines versions HA, OptionsFlow n’a pas __init__(config_entry)
+        # et config_entry est une property read-only -> on doit remplir _config_entry.
+        self._config_entry = config_entry
 
     async def async_step_init(self, user_input=None):
         if user_input is not None:
-            # IMPORTANT: on laisse HA enregistrer ça dans entry.options
+            # HA va stocker ça dans entry.options automatiquement
             return self.async_create_entry(title="", data=user_input)
 
         opts = self.config_entry.options
-        data = self.config_entry.data
 
         schema = vol.Schema(
             {
@@ -89,11 +92,6 @@ class AnkerSolixEVOptionsFlow(config_entries.OptionsFlow):
                     CONF_WORD_ORDER,
                     default=opts.get(CONF_WORD_ORDER, DEFAULT_WORD_ORDER),
                 ): vol.In(["hi_lo", "lo_hi"]),
-
-                # Affiché mais non modifiable ici (on garde l'identité en data)
-                # Si tu veux rendre host/port modifiables, on peut aussi le faire,
-                # mais c’est souvent mieux de supprimer/réajouter l'intégration pour ça.
             }
         )
-
         return self.async_show_form(step_id="init", data_schema=schema)
