@@ -1,0 +1,18 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Anker SOLIX EV Charger",
+        "description": "Configure l'accès Modbus TCP au chargeur.",
+        "data": {
+          "host": "IP du chargeur",
+          "port": "Port Modbus",
+          "scan_interval": "Intervalle de lecture (s)",
+          "address_offset": "Offset d'adresse (0 ou -1)",
+          "word_order": "Ordre des mots 32-bit"
+        }
+      }
+    }
+  }
+}
+

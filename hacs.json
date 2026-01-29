@@ -1,0 +1,7 @@
+{
+  "name": "Anker SOLIX EV Charger (Modbus TCP)",
+  "content_in_root": false,
+  "domains": ["anker_solix_ev"],
+  "render_readme": true
+}
+
