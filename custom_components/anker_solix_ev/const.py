@@ -1,5 +1,5 @@
 DOMAIN = "anker_solix_ev"
-PLATFORMS = ["sensor", "number", "select", "button", "binary_sensor"]
+PLATFORMS = ["sensor", "button"]
 
 CONF_HOST = "host"
 CONF_PORT = "port"

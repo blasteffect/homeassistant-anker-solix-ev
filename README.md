@@ -47,3 +47,7 @@ This integration is an MVP baseline intended for extension (more sensors, scalin
 ## v0.2.5
 - Fixed startup/configuration regression on control registers: `REG_PHASE_SETTING (21003)` and `REG_MAX_CURRENT (21004)` are now read directly (no `outside cached read blocks` error).
 - Version metadata aligned for HACS upgrade detection (`manifest.json` bumped to `0.2.5`).
+
+## v0.2.6
+- Added a minimal/stable mode aligned with the compact dashboard: only 3 sensors (`Charging Status`, `Total Active Power`, `Session Energy`) and 2 actions (`Start/Stop Charging`).
+- Reduced polling scope to the required registers only, lowering Modbus traffic and helping stability when communication is flaky.
