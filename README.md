@@ -51,3 +51,8 @@ This integration is an MVP baseline intended for extension (more sensors, scalin
 ## v0.2.6
 - Added a minimal/stable mode aligned with the compact dashboard: only 3 sensors (`Charging Status`, `Total Active Power`, `Session Energy`) and 2 actions (`Start/Stop Charging`).
 - Reduced polling scope to the required registers only, lowering Modbus traffic and helping stability when communication is flaky.
+
+## v0.2.7
+- Switched Modbus TCP client to persistent socket mode (no connect/close on every request).
+- Added automatic reconnect on communication errors and proper socket close on integration unload.
+- Keeps the minimal polling profile from v0.2.6 while improving connection stability.

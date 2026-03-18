@@ -42,6 +42,8 @@ class AnkerModbusClient:
         self._s = settings
         self._lock = asyncio.Lock()
         self._tid = 0
+        self._reader: asyncio.StreamReader | None = None
+        self._writer: asyncio.StreamWriter | None = None
 
     def _addr(self, register: int) -> int:
         return register + self._s.address_offset
@@ -70,6 +72,33 @@ class AnkerModbusClient:
                 f"TCP connect failed to {self._s.host}:{self._s.port} ({type(e).__name__}: {e})"
             ) from e
 
+    async def _close_socket(self) -> None:
+        writer = self._writer
+        self._reader = None
+        self._writer = None
+        if writer is None:
+            return
+        try:
+            writer.close()
+            await writer.wait_closed()
+        except Exception:
+            pass
+
+    async def close(self) -> None:
+        async with self._lock:
+            await self._close_socket()
+
+    async def _ensure_connected(self) -> Tuple[asyncio.StreamReader, asyncio.StreamWriter]:
+        writer = self._writer
+        reader = self._reader
+        if reader is not None and writer is not None and not writer.is_closing():
+            return reader, writer
+        await self._close_socket()
+        reader, writer = await self._open()
+        self._reader = reader
+        self._writer = writer
+        return reader, writer
+
     @staticmethod
     def _build_mbap(tid: int, length: int, uid: int = UID_DEFAULT) -> bytes:
         return (
@@ -80,7 +109,7 @@ class AnkerModbusClient:
         )
 
     async def _exchange(self, pdu: bytes) -> bytes:
-        reader, writer = await self._open()
+        reader, writer = await self._ensure_connected()
         try:
             tid = self._next_tid()
             mbap = self._build_mbap(tid, 1 + len(pdu), UID_DEFAULT)
@@ -108,12 +137,9 @@ class AnkerModbusClient:
                 reader.readexactly(pdu_len),
                 timeout=self._s.response_timeout,
             )
-        finally:
-            try:
-                writer.close()
-                await writer.wait_closed()
-            except Exception:
-                pass
+        except Exception:
+            await self._close_socket()
+            raise
 
     async def _exchange_with_retry(self, pdu: bytes) -> bytes:
         attempts = max(1, int(self._s.retries) + 1)
