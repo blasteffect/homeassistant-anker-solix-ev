@@ -22,6 +22,10 @@ class ModbusSettings:
     port: int
     address_offset: int = 0
     word_order: str = "hi_lo"  # or "lo_hi"
+    connect_timeout: float = 5.0
+    response_timeout: float = 5.0
+    retries: int = 2
+    retry_delay_s: float = 0.3
 
 
 class AnkerModbusClient:
@@ -57,7 +61,10 @@ class AnkerModbusClient:
 
     async def _open(self) -> Tuple[asyncio.StreamReader, asyncio.StreamWriter]:
         try:
-            return await asyncio.wait_for(asyncio.open_connection(self._s.host, self._s.port), timeout=5)
+            return await asyncio.wait_for(
+                asyncio.open_connection(self._s.host, self._s.port),
+                timeout=self._s.connect_timeout,
+            )
         except Exception as e:
             raise ConnectionError(
                 f"TCP connect failed to {self._s.host}:{self._s.port} ({type(e).__name__}: {e})"
@@ -80,7 +87,10 @@ class AnkerModbusClient:
             writer.write(mbap + pdu)
             await writer.drain()
 
-            hdr = await asyncio.wait_for(reader.readexactly(MBAP_HEADER_LEN), timeout=5)
+            hdr = await asyncio.wait_for(
+                reader.readexactly(MBAP_HEADER_LEN),
+                timeout=self._s.response_timeout,
+            )
             r_tid = int.from_bytes(hdr[0:2], "big")
             r_pid = int.from_bytes(hdr[2:4], "big")
             r_len = int.from_bytes(hdr[4:6], "big")
@@ -94,13 +104,31 @@ class AnkerModbusClient:
             if pdu_len <= 0:
                 raise RuntimeError(f"Invalid response length: {r_len}")
 
-            return await asyncio.wait_for(reader.readexactly(pdu_len), timeout=5)
+            return await asyncio.wait_for(
+                reader.readexactly(pdu_len),
+                timeout=self._s.response_timeout,
+            )
         finally:
             try:
                 writer.close()
                 await writer.wait_closed()
             except Exception:
                 pass
+
+    async def _exchange_with_retry(self, pdu: bytes) -> bytes:
+        attempts = max(1, int(self._s.retries) + 1)
+        last_err: Exception | None = None
+        for attempt in range(1, attempts + 1):
+            try:
+                return await self._exchange(pdu)
+            except (TimeoutError, ConnectionError, OSError, asyncio.IncompleteReadError) as err:
+                last_err = err
+                if attempt >= attempts:
+                    break
+                await asyncio.sleep(max(0.0, float(self._s.retry_delay_s)))
+        if last_err is not None:
+            raise last_err
+        raise RuntimeError("Unknown Modbus exchange retry failure")
 
     @staticmethod
     def _raise_if_exception(resp_pdu: bytes) -> None:
@@ -133,7 +161,7 @@ class AnkerModbusClient:
 
     async def _read_regs(self, fc: int, start_addr: int, quantity: int) -> List[int]:
         pdu = bytes([fc]) + start_addr.to_bytes(2, "big") + quantity.to_bytes(2, "big")
-        resp = await self._exchange(pdu)
+        resp = await self._exchange_with_retry(pdu)
         return self._parse_read_response(fc, resp)
 
     async def _read_holding_with_fallback(self, addr: int, qty: int) -> List[int]:
@@ -156,12 +184,18 @@ class AnkerModbusClient:
             regs = await self._read_holding_with_fallback(addr, 2)
             return self._u32_from_words(regs[:2], self._s.word_order)
 
+    async def read_block(self, start_register: int, quantity: int) -> List[int]:
+        """Read a contiguous register block and return uint16 words."""
+        async with self._lock:
+            addr = self._addr(start_register)
+            return await self._read_holding_with_fallback(addr, quantity)
+
     async def write_u16(self, register: int, value: int) -> None:
         async with self._lock:
             addr = self._addr(register)
             val = int(value) & 0xFFFF
             pdu = b"\x06" + addr.to_bytes(2, "big") + val.to_bytes(2, "big")
-            resp = await self._exchange(pdu)
+            resp = await self._exchange_with_retry(pdu)
 
             self._raise_if_exception(resp)
             if len(resp) != 5 or resp[0] != 0x06:

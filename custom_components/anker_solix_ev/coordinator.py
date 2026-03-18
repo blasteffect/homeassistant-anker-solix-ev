@@ -42,6 +42,7 @@ class AnkerSolixCoordinator(DataUpdateCoordinator[dict]):
         scan = int(opts.get(CONF_SCAN_INTERVAL, data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)))
         offset = int(opts.get(CONF_ADDRESS_OFFSET, data.get(CONF_ADDRESS_OFFSET, DEFAULT_ADDRESS_OFFSET)))
         word_order = str(opts.get(CONF_WORD_ORDER, data.get(CONF_WORD_ORDER, DEFAULT_WORD_ORDER)))
+        self._word_order = word_order
 
         self.client = AnkerModbusClient(
             ModbusSettings(
@@ -61,49 +62,73 @@ class AnkerSolixCoordinator(DataUpdateCoordinator[dict]):
 
     async def _async_update_data(self) -> dict:
         try:
-            status = await self.client.read_u16(REG_CHARGING_STATUS)
-            power_w = await self.client.read_u32(REG_TOTAL_ACTIVE_POWER)
-            duration_s = await self.client.read_u32(REG_SESSION_DURATION)
-            energy_wh = await self.client.read_u32(REG_SESSION_ENERGY_WH)
+            block_20053_20085 = await self.client.read_block(20053, 33)
+            block_20086 = await self.client.read_block(20086, 1)
+            block_20089_20090 = await self.client.read_block(20089, 2)
+            block_20092_20099 = await self.client.read_block(20092, 8)
 
-            phase = await self.client.read_u16(REG_PHASE_SETTING)
-            max_current = await self.client.read_u16(REG_MAX_CURRENT)
+            def u16(register: int) -> int:
+                if 20053 <= register <= 20085:
+                    return int(block_20053_20085[register - 20053])
+                if register == 20086:
+                    return int(block_20086[0])
+                if 20089 <= register <= 20090:
+                    return int(block_20089_20090[register - 20089])
+                if 20092 <= register <= 20099:
+                    return int(block_20092_20099[register - 20092])
+                raise ValueError(f"Register {register} is outside cached read blocks")
 
-            v_l1n = await self.client.read_u16(REG_L1N_VOLTAGE)
-            v_l2n = await self.client.read_u16(REG_L2N_VOLTAGE)
-            v_l3n = await self.client.read_u16(REG_L3N_VOLTAGE)
-            v_l12 = await self.client.read_u16(REG_L12_VOLTAGE)
-            v_l23 = await self.client.read_u16(REG_L23_VOLTAGE)
-            v_l31 = await self.client.read_u16(REG_L31_VOLTAGE)
+            def u32(register: int) -> int:
+                w0, w1 = u16(register), u16(register + 1)
+                if self._word_order == "hi_lo":
+                    hi, lo = w0, w1
+                else:
+                    hi, lo = w1, w0
+                return (hi << 16) | lo
 
-            i_l1 = await self.client.read_u16(REG_L1_CURRENT)
-            i_l2 = await self.client.read_u16(REG_L2_CURRENT)
-            i_l3 = await self.client.read_u16(REG_L3_CURRENT)
+            status = u16(REG_CHARGING_STATUS)
+            power_w = u32(REG_TOTAL_ACTIVE_POWER)
+            duration_s = u32(REG_SESSION_DURATION)
+            energy_wh = u32(REG_SESSION_ENERGY_WH)
 
-            p_l1 = await self.client.read_u32(REG_L1_ACTIVE_POWER)
-            p_l2 = await self.client.read_u32(REG_L2_ACTIVE_POWER)
-            p_l3 = await self.client.read_u32(REG_L3_ACTIVE_POWER)
+            phase = u16(REG_PHASE_SETTING)
+            max_current = u16(REG_MAX_CURRENT)
 
-            q_l1 = await self.client.read_u32(REG_L1_REACTIVE_POWER)
-            q_l2 = await self.client.read_u32(REG_L2_REACTIVE_POWER)
-            q_l3 = await self.client.read_u32(REG_L3_REACTIVE_POWER)
+            v_l1n = u16(REG_L1N_VOLTAGE)
+            v_l2n = u16(REG_L2N_VOLTAGE)
+            v_l3n = u16(REG_L3N_VOLTAGE)
+            v_l12 = u16(REG_L12_VOLTAGE)
+            v_l23 = u16(REG_L23_VOLTAGE)
+            v_l31 = u16(REG_L31_VOLTAGE)
 
-            s_l1 = await self.client.read_u32(REG_L1_APPARENT_POWER)
-            s_l2 = await self.client.read_u32(REG_L2_APPARENT_POWER)
-            s_l3 = await self.client.read_u32(REG_L3_APPARENT_POWER)
+            i_l1 = u16(REG_L1_CURRENT)
+            i_l2 = u16(REG_L2_CURRENT)
+            i_l3 = u16(REG_L3_CURRENT)
 
-            operating_mode = await self.client.read_u16(REG_OPERATING_MODE)
-            pwm_enabled = await self.client.read_u16(REG_PWM_ENABLED)
-            charging_mode = await self.client.read_u16(REG_CHARGING_MODE)
+            p_l1 = u32(REG_L1_ACTIVE_POWER)
+            p_l2 = u32(REG_L2_ACTIVE_POWER)
+            p_l3 = u32(REG_L3_ACTIVE_POWER)
 
-            cp_signal = await self.client.read_u16(REG_CP_SIGNAL_STATUS)
-            lb_enabled = await self.client.read_u16(REG_LOAD_BALANCING_ENABLED)
-            solar_enabled = await self.client.read_u16(REG_SOLAR_BALANCING_ENABLED)
-            cp_acq = await self.client.read_u16(REG_CP_ACQ_VOLTAGE)
-            led = await self.client.read_u16(REG_LED_BRIGHTNESS)
+            q_l1 = u32(REG_L1_REACTIVE_POWER)
+            q_l2 = u32(REG_L2_REACTIVE_POWER)
+            q_l3 = u32(REG_L3_REACTIVE_POWER)
 
-            relay1 = await self.client.read_u16(REG_RELAY1_TEMP)
-            relay2 = await self.client.read_u16(REG_RELAY2_TEMP)
+            s_l1 = u32(REG_L1_APPARENT_POWER)
+            s_l2 = u32(REG_L2_APPARENT_POWER)
+            s_l3 = u32(REG_L3_APPARENT_POWER)
+
+            operating_mode = u16(REG_OPERATING_MODE)
+            pwm_enabled = u16(REG_PWM_ENABLED)
+            charging_mode = u16(REG_CHARGING_MODE)
+
+            cp_signal = u16(REG_CP_SIGNAL_STATUS)
+            lb_enabled = u16(REG_LOAD_BALANCING_ENABLED)
+            solar_enabled = u16(REG_SOLAR_BALANCING_ENABLED)
+            cp_acq = u16(REG_CP_ACQ_VOLTAGE)
+            led = u16(REG_LED_BRIGHTNESS)
+
+            relay1 = u16(REG_RELAY1_TEMP)
+            relay2 = u16(REG_RELAY2_TEMP)
 
             return {
                 "charging_status": status,

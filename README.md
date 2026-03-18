@@ -37,3 +37,9 @@ This integration is an MVP baseline intended for extension (more sensors, scalin
 ## v0.2.0
 - Added per-phase voltage/current/power sensors, flags as binary_sensors, and readback for phase/max current.
 - Removed pymodbus dependency (socket Modbus TCP).
+
+## v0.2.4
+- Improved Modbus communication reliability to reduce lost connection errors and long request expirations (including 120s timeout cases reported by apps).
+- Reworked coordinator polling to use grouped block reads instead of many sequential single-register reads.
+- Added bounded retry logic for Modbus TCP exchanges (read/write) to better handle transient network issues.
+- Made TCP connect/response timeouts configurable in Modbus client settings.
