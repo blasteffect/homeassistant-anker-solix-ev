@@ -56,3 +56,9 @@ This integration is an MVP baseline intended for extension (more sensors, scalin
 - Switched Modbus TCP client to persistent socket mode (no connect/close on every request).
 - Added automatic reconnect on communication errors and proper socket close on integration unload.
 - Keeps the minimal polling profile from v0.2.6 while improving connection stability.
+
+
+## v0.2.8
+- Restored the full telemetry set (voltages, currents, per-phase powers, flags, temperatures, phase and max current).
+- Kept the later communication/stability fixes from the minimal/stable branch.
+- Kept the Home Assistant options-flow compatibility fix.

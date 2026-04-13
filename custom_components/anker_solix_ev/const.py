@@ -1,5 +1,5 @@
 DOMAIN = "anker_solix_ev"
-PLATFORMS = ["sensor", "button"]
+PLATFORMS = ["sensor", "number", "select", "button", "binary_sensor"]
 
 CONF_HOST = "host"
 CONF_PORT = "port"
@@ -9,10 +9,10 @@ CONF_WORD_ORDER = "word_order"
 
 DEFAULT_PORT = 502
 DEFAULT_SCAN_INTERVAL = 5  # seconds
-DEFAULT_ADDRESS_OFFSET = 0  # works for you
+DEFAULT_ADDRESS_OFFSET = 0
 DEFAULT_WORD_ORDER = "hi_lo"  # or "lo_hi"
 
-# --- Key registers (Anker SOLIX V1 Modbus Protocol v1.0.0 30-11-2025) ---
+# Status / totals
 REG_CHARGING_STATUS = 20097          # uint16 (0..8)
 REG_TOTAL_ACTIVE_POWER = 20068       # uint32, W
 REG_SESSION_DURATION = 20082         # uint32, s
@@ -27,7 +27,7 @@ REG_L23_VOLTAGE = 20057
 REG_L31_VOLTAGE = 20058
 
 # Currents (gain 100)
-REG_L1_CURRENT = 20059              # uint16, A*100
+REG_L1_CURRENT = 20059               # uint16, A*100
 REG_L2_CURRENT = 20060
 REG_L3_CURRENT = 20061
 
@@ -35,13 +35,10 @@ REG_L3_CURRENT = 20061
 REG_L1_ACTIVE_POWER = 20062          # uint32, W
 REG_L2_ACTIVE_POWER = 20064
 REG_L3_ACTIVE_POWER = 20066
-# total = 20068
-
-REG_L1_REACTIVE_POWER = 20070        # uint32, W
+REG_L1_REACTIVE_POWER = 20070        # uint32, var
 REG_L2_REACTIVE_POWER = 20072
 REG_L3_REACTIVE_POWER = 20074
-
-REG_L1_APPARENT_POWER = 20076        # uint32, W
+REG_L1_APPARENT_POWER = 20076        # uint32, VA
 REG_L2_APPARENT_POWER = 20078
 REG_L3_APPARENT_POWER = 20080
 
