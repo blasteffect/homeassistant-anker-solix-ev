@@ -61,7 +61,7 @@ REG_COMMAND = 21000                  # uint16 write: 1 start, 2 stop
 REG_BOOST = 21001                    # uint16 write: 1 on (once per session)
 REG_TIMEOUT = 21002                  # uint16 write: seconds (>5)
 REG_PHASE_SETTING = 21003            # uint16 write: 0 auto, 1 single, 2 three
-REG_MAX_CURRENT = 21004              # uint16 write: A
+REG_MAX_CURRENT = 21001              # uint16 write: A
 
 CHARGING_STATUS_MAP = {
     0: "idle",

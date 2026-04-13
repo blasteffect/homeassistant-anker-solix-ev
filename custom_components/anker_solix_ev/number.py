@@ -32,9 +32,21 @@ class MaxCurrentNumber(NumberEntity):
 
     @property
     def native_value(self):
-        val = self.coordinator.data.get("max_current")
-        return int(val) if val is not None else None
+        value = self.coordinator.data.get("max_current")
+        if value is None:
+            return None
+
+        # registre 21001 stocké en dixièmes d'ampère
+        return int(value) // 10
 
     async def async_set_native_value(self, value: float) -> None:
-        await self.coordinator.client.write_u16(REG_MAX_CURRENT, int(value))
+        # exemple : 10A -> 100
+        register_value = int(value) * 10
+
+        await self.coordinator.client.write_u16(
+            REG_MAX_CURRENT,
+            register_value,
+        )
+
+        # relit les valeurs après écriture
         await self.coordinator.async_request_refresh()

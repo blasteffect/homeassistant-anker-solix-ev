@@ -62,3 +62,6 @@ This integration is an MVP baseline intended for extension (more sensors, scalin
 - Restored the full telemetry set (voltages, currents, per-phase powers, flags, temperatures, phase and max current).
 - Kept the later communication/stability fixes from the minimal/stable branch.
 - Kept the Home Assistant options-flow compatibility fix.
+
+## v0.2.9
+- Fix registre max current
