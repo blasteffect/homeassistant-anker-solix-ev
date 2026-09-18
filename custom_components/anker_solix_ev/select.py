@@ -7,6 +7,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN, REG_PHASE_SETTING, PHASE_MAP, PHASE_REVERSE_MAP
 from .coordinator import AnkerSolixCoordinator
+from .entity import AnkerSolixEntity
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback):
@@ -14,14 +15,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     async_add_entities([PhaseSelect(coord, entry)])
 
 
-class PhaseSelect(SelectEntity):
-    _attr_has_entity_name = True
+class PhaseSelect(AnkerSolixEntity, SelectEntity):
     _attr_name = "Phase Setting"
     _attr_options = list(PHASE_REVERSE_MAP.keys())
 
     def __init__(self, coordinator: AnkerSolixCoordinator, entry: ConfigEntry):
-        self.coordinator = coordinator
-        self.entry = entry
+        super().__init__(coordinator, entry)
 
     @property
     def unique_id(self):

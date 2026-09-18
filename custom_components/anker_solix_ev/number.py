@@ -7,6 +7,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN, REG_MAX_CURRENT
 from .coordinator import AnkerSolixCoordinator
+from .entity import AnkerSolixEntity
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback):
@@ -14,8 +15,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     async_add_entities([MaxCurrentNumber(coord, entry)])
 
 
-class MaxCurrentNumber(NumberEntity):
-    _attr_has_entity_name = True
+class MaxCurrentNumber(AnkerSolixEntity, NumberEntity):
     _attr_name = "Max Current"
     _attr_native_unit_of_measurement = "A"
     _attr_native_min_value = 0
@@ -23,8 +23,7 @@ class MaxCurrentNumber(NumberEntity):
     _attr_native_step = 1
 
     def __init__(self, coordinator: AnkerSolixCoordinator, entry: ConfigEntry):
-        self.coordinator = coordinator
-        self.entry = entry
+        super().__init__(coordinator, entry)
 
     @property
     def unique_id(self):

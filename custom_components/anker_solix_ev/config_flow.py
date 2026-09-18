@@ -50,7 +50,7 @@ class AnkerSolixEVConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required(CONF_HOST): str,
                 vol.Optional(CONF_PORT, default=DEFAULT_PORT): vol.Coerce(int),
                 vol.Optional(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): vol.Coerce(int),
-                vol.Optional(CONF_ADDRESS_OFFSET, default=DEFAULT_ADDRESS_OFFSET): vol.Coerce(int),
+                vol.Optional(CONF_ADDRESS_OFFSET, default=DEFAULT_ADDRESS_OFFSET): vol.In([-1, 0]),
                 vol.Optional(CONF_WORD_ORDER, default=DEFAULT_WORD_ORDER): vol.In(["hi_lo", "lo_hi"]),
             }
         )
@@ -87,7 +87,7 @@ class AnkerSolixEVOptionsFlow(config_entries.OptionsFlow):
                 vol.Required(
                     CONF_ADDRESS_OFFSET,
                     default=opts.get(CONF_ADDRESS_OFFSET, data.get(CONF_ADDRESS_OFFSET, DEFAULT_ADDRESS_OFFSET)),
-                ): vol.Coerce(int),
+                ): vol.In([-1, 0]),
                 vol.Required(
                     CONF_WORD_ORDER,
                     default=opts.get(CONF_WORD_ORDER, data.get(CONF_WORD_ORDER, DEFAULT_WORD_ORDER)),

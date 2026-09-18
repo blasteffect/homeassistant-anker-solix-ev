@@ -8,7 +8,7 @@
           "host": "IP du chargeur",
           "port": "Port Modbus",
           "scan_interval": "Intervalle de lecture (s)",
-          "address_offset": "Offset d'adresse (0 ou -1)",
+          "address_offset": "Offset d'adresse de lecture (0 ou -1)",
           "word_order": "Ordre des mots 32-bit"
         }
       }

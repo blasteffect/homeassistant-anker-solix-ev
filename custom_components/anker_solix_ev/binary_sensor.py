@@ -7,6 +7,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
 from .coordinator import AnkerSolixCoordinator
+from .entity import AnkerSolixEntity
 
 
 async def async_setup_entry(
@@ -18,17 +19,16 @@ async def async_setup_entry(
             _FlagBinarySensor(coord, entry, "PWM Enabled", "pwm_enabled"),
             _FlagBinarySensor(coord, entry, "Load Balancing Enabled", "load_balancing_enabled"),
             _FlagBinarySensor(coord, entry, "Solar Balancing Enabled", "solar_balancing_enabled"),
-            _FlagBinarySensor(coord, entry, "CP Signal Status", "cp_signal_status"),
+            _FlagBinarySensor(coord, entry, "Boost Mode", "boost_mode"),
+            _FlagBinarySensor(coord, entry, "MQTT Connection Status", "mqtt_connection_status"),
         ]
     )
 
 
-class _FlagBinarySensor(BinarySensorEntity):
-    _attr_has_entity_name = True
+class _FlagBinarySensor(AnkerSolixEntity, BinarySensorEntity):
 
     def __init__(self, coordinator: AnkerSolixCoordinator, entry: ConfigEntry, name: str, key: str):
-        self.coordinator = coordinator
-        self.entry = entry
+        super().__init__(coordinator, entry)
         self._attr_name = name
         self._key = key
 
@@ -42,6 +42,3 @@ class _FlagBinarySensor(BinarySensorEntity):
         if val is None:
             return None
         return int(val) == 1
-
-    async def async_added_to_hass(self):
-        self.async_on_remove(self.coordinator.async_add_listener(self.async_write_ha_state))

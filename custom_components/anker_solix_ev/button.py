@@ -7,6 +7,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN, REG_COMMAND
 from .coordinator import AnkerSolixCoordinator
+from .entity import AnkerSolixEntity
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback):
@@ -17,12 +18,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     ])
 
 
-class _Base(ButtonEntity):
-    _attr_has_entity_name = True
+class _Base(AnkerSolixEntity, ButtonEntity):
 
     def __init__(self, coordinator: AnkerSolixCoordinator, entry: ConfigEntry):
-        self.coordinator = coordinator
-        self.entry = entry
+        super().__init__(coordinator, entry)
 
 
 class StartChargeButton(_Base):

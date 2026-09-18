@@ -17,17 +17,57 @@ If sensors show nonsense, try:
 - Address offset: -1
 - Word order: lo_hi
 
+The address offset is applied only to reads for compatibility with differing
+register-number conventions. Control writes always use the canonical addresses
+from the Anker protocol and cannot be redirected by this option.
+
 ## MVP entities
 - Charging Status (20097)
 - Total Active Power W (20068, UINT32)
 - Session Duration s (20082, UINT32)
 - Session Energy Wh (20084, UINT32)
 - Buttons: Start/Stop (21000)
-- Number: Max Current A (21004)
-- Select: Phase Setting (21003)
+- Number: Max Current A (21001, tenths of an ampere)
+- Select: Phase Setting (21005)
 
 ## Notes
 This integration is an MVP baseline intended for extension (more sensors, scaling, binary sensors, etc.).
+
+Home Assistant represents the charger as one **Anker EV Charger** device. Its
+telemetry and controls are separate entities grouped beneath that device, which
+is the native Home Assistant device model.
+
+## Verified Modbus mapping
+
+The register map was checked against the Anker SOLIX V1 Smart EV Charger
+Modbus Protocol V1.0.0 and read-only values from an A5191 charger running
+software `1.0.6.1`.
+
+| Address | Signal | Conversion |
+| --- | --- | --- |
+| 20086 | PWM enabled | 0/1 |
+| 20087 | Single/three-phase operating mode | 1 single, 3 three |
+| 20088 | Charging mode | 0 solar + grid, 1 only solar |
+| 20089 | Load balancing enabled | 0/1 |
+| 20090 | Solar power balancing enabled | 0/1 |
+| 20091 | CP acquisition voltage | observed as millivolts |
+| 20092 | CP signal status | CP state enum |
+| 20093-20094 | Relay temperatures | signed values observed in tenths of °C |
+| 20095 | Boost mode status | 0/1 |
+| 20096 | LED brightness | percent |
+| 20097 | Charging status | status enum |
+| 20099 | OCPP connection status | 0 disconnected, 1 connecting, 2 connected |
+| 20100 | MQTT connection status | 0/1 |
+| 21000 | Charging command | 1 start, 2 stop |
+| 21001 | Maximum current | tenths of an ampere |
+| 21002 | Boost command | 1 on |
+| 21003 | Timeout | seconds, greater than 5 |
+| 21004 | Reserved | do not use |
+| 21005 | Number of charging phases | 0 auto, 1 single, 2 three |
+
+The protocol PDF labels the units for several control registers incorrectly.
+The conversions above use the signal descriptions and values observed on the
+charger. No Modbus writes were used during verification.
 
 
 ## v0.1.1

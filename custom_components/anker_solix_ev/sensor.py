@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from homeassistant.components.sensor import SensorEntity
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
@@ -10,9 +11,11 @@ from .const import (
     CHARGING_STATUS_MAP,
     OPERATING_MODE_MAP,
     CHARGING_MODE_MAP,
-    CP_ACQ_VOLTAGE_MAP,
+    CP_SIGNAL_STATUS_MAP,
+    OCPP_CONNECTION_STATUS_MAP,
 )
 from .coordinator import AnkerSolixCoordinator
+from .entity import AnkerSolixEntity
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback):
@@ -23,16 +26,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         U32Sensor(coord, entry, "Session Energy", "energy_wh", "Wh"),
         U32Sensor(coord, entry, "Session Duration", "duration_s", "s"),
 
-        ScaledU16Sensor(coord, entry, "L1-N Voltage", "v_l1n", "V", 10),
-        ScaledU16Sensor(coord, entry, "L2-N Voltage", "v_l2n", "V", 10),
-        ScaledU16Sensor(coord, entry, "L3-N Voltage", "v_l3n", "V", 10),
-        ScaledU16Sensor(coord, entry, "L1-L2 Voltage", "v_l12", "V", 10),
-        ScaledU16Sensor(coord, entry, "L2-L3 Voltage", "v_l23", "V", 10),
-        ScaledU16Sensor(coord, entry, "L3-L1 Voltage", "v_l31", "V", 10),
+        ScaledSensor(coord, entry, "L1-N Voltage", "v_l1n", "V", 10),
+        ScaledSensor(coord, entry, "L2-N Voltage", "v_l2n", "V", 10),
+        ScaledSensor(coord, entry, "L3-N Voltage", "v_l3n", "V", 10),
+        ScaledSensor(coord, entry, "L1-L2 Voltage", "v_l12", "V", 10),
+        ScaledSensor(coord, entry, "L2-L3 Voltage", "v_l23", "V", 10),
+        ScaledSensor(coord, entry, "L3-L1 Voltage", "v_l31", "V", 10),
 
-        ScaledU16Sensor(coord, entry, "L1 Current", "i_l1", "A", 100),
-        ScaledU16Sensor(coord, entry, "L2 Current", "i_l2", "A", 100),
-        ScaledU16Sensor(coord, entry, "L3 Current", "i_l3", "A", 100),
+        ScaledSensor(coord, entry, "L1 Current", "i_l1", "A", 100),
+        ScaledSensor(coord, entry, "L2 Current", "i_l2", "A", 100),
+        ScaledSensor(coord, entry, "L3 Current", "i_l3", "A", 100),
 
         U32Sensor(coord, entry, "L1 Active Power", "p_l1", "W"),
         U32Sensor(coord, entry, "L2 Active Power", "p_l2", "W"),
@@ -48,23 +51,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 
         EnumSensor(coord, entry, "Operating Mode", "operating_mode", OPERATING_MODE_MAP),
         EnumSensor(coord, entry, "Charging Mode", "charging_mode", CHARGING_MODE_MAP),
-        EnumSensor(coord, entry, "CP Acquisition Voltage", "cp_acq_voltage", CP_ACQ_VOLTAGE_MAP),
+        ScaledSensor(coord, entry, "CP Acquisition Voltage", "cp_acq_voltage", "V", 1000),
+        EnumSensor(coord, entry, "CP Signal Status", "cp_signal_status", CP_SIGNAL_STATUS_MAP),
+        EnumSensor(coord, entry, "OCPP Connection Status", "ocpp_connection_status", OCPP_CONNECTION_STATUS_MAP),
 
         U16Sensor(coord, entry, "LED Brightness", "led_brightness", "%"),
-        U16Sensor(coord, entry, "Relay 1 Temperature", "relay1_temp", "°C"),
-        U16Sensor(coord, entry, "Relay 2 Temperature", "relay2_temp", "°C"),
+        ScaledSensor(coord, entry, "Relay 1 Temperature", "relay1_temp", "°C", 10),
+        ScaledSensor(coord, entry, "Relay 2 Temperature", "relay2_temp", "°C", 10),
     ])
 
 
-class _Base(SensorEntity):
-    _attr_has_entity_name = True
+class _Base(AnkerSolixEntity, SensorEntity):
 
     def __init__(self, coordinator: AnkerSolixCoordinator, entry: ConfigEntry):
-        self.coordinator = coordinator
-        self.entry = entry
-
-    async def async_added_to_hass(self):
-        self.async_on_remove(self.coordinator.async_add_listener(self.async_write_ha_state))
+        super().__init__(coordinator, entry)
 
 
 class ChargingStatusSensor(_Base):
@@ -86,8 +86,8 @@ class ChargingStatusSensor(_Base):
 class TotalActivePowerSensor(_Base):
     _attr_name = "Total Active Power"
     _attr_native_unit_of_measurement = "W"
-    _attr_device_class = "power"
-    _attr_state_class = "measurement"
+    _attr_device_class = SensorDeviceClass.POWER
+    _attr_state_class = SensorStateClass.MEASUREMENT
 
     @property
     def unique_id(self):
@@ -105,6 +105,11 @@ class U16Sensor(_Base):
         self._attr_name = name
         self._key = key
         self._attr_native_unit_of_measurement = unit
+        if key == "led_brightness":
+            self._attr_entity_category = EntityCategory.DIAGNOSTIC
+        elif key.endswith("_temp"):
+            self._attr_device_class = SensorDeviceClass.TEMPERATURE
+            self._attr_state_class = SensorStateClass.MEASUREMENT
 
     @property
     def unique_id(self):
@@ -122,6 +127,20 @@ class U32Sensor(_Base):
         self._attr_name = name
         self._key = key
         self._attr_native_unit_of_measurement = unit
+        if key == "energy_wh":
+            self._attr_device_class = SensorDeviceClass.ENERGY
+            self._attr_state_class = SensorStateClass.TOTAL_INCREASING
+        elif key == "duration_s":
+            self._attr_device_class = SensorDeviceClass.DURATION
+        elif key.startswith("p_"):
+            self._attr_device_class = SensorDeviceClass.POWER
+            self._attr_state_class = SensorStateClass.MEASUREMENT
+        elif key.startswith("q_"):
+            self._attr_device_class = SensorDeviceClass.REACTIVE_POWER
+            self._attr_state_class = SensorStateClass.MEASUREMENT
+        elif key.startswith("s_"):
+            self._attr_device_class = SensorDeviceClass.APPARENT_POWER
+            self._attr_state_class = SensorStateClass.MEASUREMENT
 
     @property
     def unique_id(self):
@@ -133,13 +152,20 @@ class U32Sensor(_Base):
         return int(val) if val is not None else None
 
 
-class ScaledU16Sensor(_Base):
+class ScaledSensor(_Base):
     def __init__(self, coordinator: AnkerSolixCoordinator, entry: ConfigEntry, name: str, key: str, unit: str, gain: int):
         super().__init__(coordinator, entry)
         self._attr_name = name
         self._key = key
         self._attr_native_unit_of_measurement = unit
         self._gain = gain
+        self._attr_state_class = SensorStateClass.MEASUREMENT
+        if key.startswith("v_") or key == "cp_acq_voltage":
+            self._attr_device_class = SensorDeviceClass.VOLTAGE
+        elif key.startswith("i_"):
+            self._attr_device_class = SensorDeviceClass.CURRENT
+        elif key.endswith("_temp"):
+            self._attr_device_class = SensorDeviceClass.TEMPERATURE
 
     @property
     def unique_id(self):

@@ -8,7 +8,7 @@
           "host": "Charger IP",
           "port": "Modbus port",
           "scan_interval": "Polling interval (s)",
-          "address_offset": "Address offset (0 or -1)",
+          "address_offset": "Read address offset (0 or -1)",
           "word_order": "32-bit word order"
         }
       }

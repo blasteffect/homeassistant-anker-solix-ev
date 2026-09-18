@@ -43,25 +43,29 @@ REG_L2_APPARENT_POWER = 20078
 REG_L3_APPARENT_POWER = 20080
 
 # Modes / flags
-REG_OPERATING_MODE = 20086           # uint16 (1 single-phase, 3 three-phase)
-REG_PWM_ENABLED = 20089              # uint16 (0/1)
-REG_CHARGING_MODE = 20090            # uint16 (0 solar+grid, 1 only solar)
-REG_CP_SIGNAL_STATUS = 20092         # uint16 (0/1)
-REG_LOAD_BALANCING_ENABLED = 20093   # uint16 (0/1)
-REG_SOLAR_BALANCING_ENABLED = 20094  # uint16 (0/1)
-REG_CP_ACQ_VOLTAGE = 20095           # uint16 enum
+REG_PWM_ENABLED = 20086              # uint16 (0/1)
+REG_OPERATING_MODE = 20087           # uint16 (1 single-phase, 3 three-phase)
+REG_CHARGING_MODE = 20088            # uint16 (0 solar+grid, 1 only solar)
+REG_LOAD_BALANCING_ENABLED = 20089   # uint16 (0/1)
+REG_SOLAR_BALANCING_ENABLED = 20090  # uint16 (0/1)
+REG_CP_ACQ_VOLTAGE = 20091           # uint16, observed millivolts
+REG_CP_SIGNAL_STATUS = 20092         # uint16 CP state enum
+REG_RELAY1_TEMP = 20093              # int16, observed °C*10
+REG_RELAY2_TEMP = 20094              # int16, observed °C*10
+REG_BOOST_STATUS = 20095             # uint16 (0/1)
 REG_LED_BRIGHTNESS = 20096           # uint16 (%)
 
-# Temperatures
-REG_RELAY1_TEMP = 20098              # uint16, °C
-REG_RELAY2_TEMP = 20099              # uint16, °C
+REG_RESERVED_STATUS = 20098
+REG_OCPP_CONNECTION_STATUS = 20099   # uint16 (0 disconnected, 1 connecting, 2 connected)
+REG_MQTT_CONNECTION_STATUS = 20100   # uint16 (0/1)
 
 # Control (RW)
 REG_COMMAND = 21000                  # uint16 write: 1 start, 2 stop
-REG_BOOST = 21001                    # uint16 write: 1 on (once per session)
-REG_TIMEOUT = 21002                  # uint16 write: seconds (>5)
-REG_PHASE_SETTING = 21003            # uint16 write: 0 auto, 1 single, 2 three
-REG_MAX_CURRENT = 21001              # uint16 write: A
+REG_MAX_CURRENT = 21001              # uint16, A*10
+REG_BOOST = 21002                    # uint16 write: 1 on (once per session)
+REG_TIMEOUT = 21003                  # uint16 write: seconds (>5)
+REG_RESERVED = 21004                 # reserved for future use
+REG_PHASE_SETTING = 21005            # uint16 write: 0 auto, 1 single, 2 three
 
 CHARGING_STATUS_MAP = {
     0: "idle",
@@ -78,7 +82,7 @@ CHARGING_STATUS_MAP = {
 OPERATING_MODE_MAP = {1: "single_phase", 3: "three_phase"}
 CHARGING_MODE_MAP = {0: "solar+grid", 1: "only_solar"}
 
-CP_ACQ_VOLTAGE_MAP = {
+CP_SIGNAL_STATUS_MAP = {
     0: "A (12V)",
     3: "B1 (9V)",
     4: "B2 (9V)",
@@ -89,6 +93,12 @@ CP_ACQ_VOLTAGE_MAP = {
     9: "D2 (3V)",
     10: "E (0V)",
     11: "F (-12V)",
+}
+
+OCPP_CONNECTION_STATUS_MAP = {
+    0: "not_connected",
+    1: "connecting",
+    2: "connected",
 }
 
 PHASE_MAP = {0: "auto", 1: "single_phase", 2: "three_phase"}
